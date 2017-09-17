@@ -10,6 +10,7 @@ from urllib import urlencode
 from urlparse import parse_qsl
 import xbmcgui
 import xbmcplugin
+import xbmcvfs
 import re
 import json
 try:
@@ -19,6 +20,7 @@ except ImportError:
     # Python 3
     from html.parser import HTMLParser
 
+_LOGFILE_PATH = 'special://home/addons/plugin.video.fr-stream/logs.txt'
 # Get the plugin url in plugin:// notation.
 _url = sys.argv[0]
 # Get the plugin handle as an integer number.
@@ -33,6 +35,14 @@ CATEGORIES = {
     'jeux-et-divertissements': ['jeux', 'divertissements', 'emissions-musicales']
 }
 
+def log(level, msg):
+    _logfile = xbmcvfs.File(_LOGFILE_PATH)
+    _logs = _logfile.read()
+    _logfile.close()
+    _logfile = xbmcvfs.File(_LOGFILE_PATH, 'w')
+    str = ''.join((_logs, msg, '\n'))
+    _logfile.write(str.encode('utf-8'))
+    _logfile.close()
 
 def get_url(**kwargs):
     """
@@ -69,12 +79,12 @@ def get_videos_from_page(url):
     h = HTMLParser()
     videos = []
     page = h.unescape(urllib2.urlopen(url).read().decode('utf8').replace('\n',''))
-    m = re.findall('<li.*?>.*?</li>', page)
+    m = re.findall('<li class=\"card card-small\s*?(?!o_6)\s*?\">.*?</li>', page)
     if m == None:
         return
 
     for match in m:
-        mbuy = re.search('€', match)
+        mbuy = re.search('<div class=\".*?label_orange.*?\">', match)
         mid = re.search('<a.*?data-video=\"(.+?)\".*?>', match)
         mtitle = re.search('<a.*?title=\"(.+?)\".*?>', match)
         msubtitle = re.search('<p class=\"fs_sm brown_l mb_5 c_black mb_5\">\s*(.+?)\s*</p>', match)
@@ -245,7 +255,9 @@ def play_video(id):
     :param id: videoId
     :type id: str
     """
+    log('D', 'Get video url from id %s' % (id))
     url = get_video_url(id)
+    log('D', 'Url : %s' % (url))
     # Create a playable item with a path to play.
     play_item = xbmcgui.ListItem(path=url)
     # Pass the item to the Kodi player.
